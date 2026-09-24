@@ -1066,11 +1066,14 @@ function decodeEntities(value: string): string {
   return (
     value
       .replace(/&nbsp;/g, " ")
+      // Repair bare entities missing their semicolon (Notes stores them that
+      // way) so they render instead of showing literally.
+      .replace(/&lt(?![a-zA-Z0-9#]*;)/g, "&lt;")
+      .replace(/&gt(?![a-zA-Z0-9#]*;)/g, "&gt;")
+      .replace(/&amp(?![a-zA-Z0-9#]*;)/g, "&amp;")
+      .replace(/&quot(?![a-zA-Z0-9#]*;)/g, "&quot;")
       .replace(/&amp;/g, "&")
-      // Bare &amp without semicolon (user-typed "&amp ...").
-      .replace(/&amp(?![a-zA-Z0-9#]+;)/g, "&")
       .replace(/&quot;/g, '"')
-      .replace(/&quot(?![a-zA-Z0-9#]+;)/g, '"')
       .replace(/&#39;/g, "'")
       .replace(/&#x27;/g, "'")
       // NOTE: &lt; &gt; (and numeric &#60; &#62;) are intentionally KEPT so

@@ -39,6 +39,8 @@ const H2M = [
   ["empty styled divs", "<div><br></div><div><b><u><br></u></b></div><div>real</div>", "real"],
   // Literal < > typed by the user must survive as entities so they render.
   ["literal angle brackets", "<div>a &lt;sdasds b</div>", "a &lt;sdasds b"],
+  ["bare lt entity repaired", "<div>a &ltsdasds b</div>", "a &lt;sdasds b"],
+  ["proper entities kept", "<div>&lt;tag&gt; &amp; &quot;q&quot;</div>", '&lt;tag&gt; & "q"'],
   ["ampersand", "<div>Fish &amp; Chips</div>", "Fish & Chips"],
   ["nbsp", "<div>a&nbsp;b</div>", "a b"],
   ["numeric entity", "<div>&#39;quoted&#39;</div>", "'quoted'"],
