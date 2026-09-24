@@ -44,6 +44,7 @@ import {
   newTemplateId,
   saveCustomTemplate,
 } from "../lib/templates";
+import { commonShortcut } from "../lib/shortcuts";
 import { useAsyncData } from "../hooks/useAsyncData";
 
 export function NoteActions({ note, onChanged }: { note: AppleNote; onChanged?: () => void }) {
@@ -55,7 +56,7 @@ export function NoteActions({ note, onChanged }: { note: AppleNote; onChanged?: 
         <Action.Push
           title="Edit Note"
           icon={Icon.Pencil}
-          shortcut={{ modifiers: ["cmd"], key: "e" }}
+          shortcut={commonShortcut("Edit")}
           target={<EditNoteView note={note} onSaved={onChanged} />}
         />
         <Action.Push
@@ -67,7 +68,7 @@ export function NoteActions({ note, onChanged }: { note: AppleNote; onChanged?: 
         <Action
           title="Open in Notes"
           icon={Icon.AppWindow}
-          shortcut={{ modifiers: ["cmd"], key: "o" }}
+          shortcut={commonShortcut("Open")}
           onAction={async () => {
             try {
               await openNote(note.id);
@@ -143,7 +144,7 @@ export function NoteActions({ note, onChanged }: { note: AppleNote; onChanged?: 
         <Action.Push
           title="New Note"
           icon={Icon.NewDocument}
-          shortcut={{ modifiers: ["cmd"], key: "n" }}
+          shortcut={commonShortcut("New")}
           target={<CreateNoteForm onCreated={onChanged} closeOnSuccess />}
         />
       </ActionPanel.Section>
@@ -329,7 +330,7 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
             <Action
               title="Duplicate Note"
               icon={Icon.CopyClipboard}
-              shortcut={{ modifiers: ["cmd"], key: "d" }}
+              shortcut={commonShortcut("Duplicate")}
               onAction={async () => {
                 const toast = await showToast({ style: Toast.Style.Animated, title: "Duplicating…" });
 
@@ -351,7 +352,7 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
               title="Delete Note"
               icon={Icon.Trash}
               style={Action.Style.Destructive}
-              shortcut={{ modifiers: ["ctrl"], key: "x" }}
+              shortcut={commonShortcut("Remove")}
               onAction={async () => {
                 if (
                   !(await confirmAlert({ title: `Delete "${note.title}"?`, message: "Moves to Recently Deleted." }))
@@ -690,7 +691,7 @@ export function CreateNoteForm({
           <Action
             title="Reload Templates"
             icon={Icon.ArrowClockwise}
-            shortcut={{ modifiers: ["cmd"], key: "r" }}
+            shortcut={commonShortcut("Refresh")}
             onAction={() => setTemplateVersion((v) => v + 1)}
           />
         </ActionPanel>
@@ -855,6 +856,13 @@ export function ExportFolderForm({ folder, onExported }: { folder: string; onExp
 
 export function TemplateForm({ initial, onSaved }: { initial?: NoteTemplate; onSaved?: () => void }) {
   const isBuiltin = initial ? BUILTIN_TEMPLATE_IDS.has(initial.id) : false;
+  const [label, setLabel] = useState(initial?.label ?? "");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [body, setBody] = useState(initial?.body ?? "");
+  const preview = [applyTemplatePlaceholders(title).trim(), applyTemplatePlaceholders(body).trim()]
+    .filter(Boolean)
+    .join("\n\n")
+    .slice(0, 300);
 
   return (
     <Form
@@ -864,12 +872,10 @@ export function TemplateForm({ initial, onSaved }: { initial?: NoteTemplate; onS
           <Action.SubmitForm
             title="Save Template"
             icon={Icon.CheckCircle}
-            onSubmit={async (values) => {
-              const label = String(values.label ?? "").trim();
-              const title = String(values.title ?? "");
-              const body = String(values.body ?? "");
+            onSubmit={async () => {
+              const name = label.trim();
 
-              if (!label) {
+              if (!name) {
                 await showToast({ style: Toast.Style.Failure, title: "Give the template a name" });
 
                 return;
@@ -877,8 +883,8 @@ export function TemplateForm({ initial, onSaved }: { initial?: NoteTemplate; onS
               const toast = await showToast({ style: Toast.Style.Animated, title: "Saving template…" });
 
               try {
-                const id = initial && !isBuiltin ? initial.id : newTemplateId(label);
-                await saveCustomTemplate({ id, label, title, body });
+                const id = initial && !isBuiltin ? initial.id : newTemplateId(name);
+                await saveCustomTemplate({ id, label: name, title, body });
                 toast.style = Toast.Style.Success;
                 toast.title = isBuiltin ? "Saved as a custom copy" : "Template saved";
                 await toast.update();
@@ -900,19 +906,22 @@ export function TemplateForm({ initial, onSaved }: { initial?: NoteTemplate; onS
           text="Built-ins can't be edited directly - saving creates your own editable copy."
         />
       ) : null}
-      <Form.TextField id="label" title="Name" placeholder="e.g. Weekly Review" defaultValue={initial?.label ?? ""} />
+      <Form.TextField id="label" title="Name" placeholder="e.g. Weekly Review" value={label} onChange={setLabel} />
       <Form.TextField
         id="title"
         title="Note title"
         placeholder="Supports {{date}}, {{time}}, {{datetime}}"
-        defaultValue={initial?.title ?? ""}
+        value={title}
+        onChange={setTitle}
       />
       <Form.TextArea
         id="body"
         title="Body (Markdown)"
         placeholder="Supports {{date}}, {{time}}, {{datetime}}"
-        defaultValue={initial?.body ?? ""}
+        value={body}
+        onChange={setBody}
       />
+      <Form.Description title="Preview (placeholders resolved)" text={preview || "Nothing to preview yet."} />
     </Form>
   );
 }

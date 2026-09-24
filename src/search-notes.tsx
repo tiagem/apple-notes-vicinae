@@ -33,6 +33,7 @@ import {
   restoreNote,
 } from "./lib/notes";
 import { useAsyncData } from "./hooks/useAsyncData";
+import { commonShortcut } from "./lib/shortcuts";
 
 function relativeDate(date: Date | null): string {
   if (!date) {
@@ -176,14 +177,18 @@ export default function SearchNotes() {
         tooltip: note.checklistInProgress ? "Checklist in progress" : "Checklist done",
       });
     }
-    const dateLabel = relativeDate(sortBy === "created" ? note.createdAt : note.modifiedAt);
 
-    if (dateLabel) {
-      accessories.push({ text: dateLabel });
-    }
+    // Folder and date live in the detail metadata - hide them there to avoid duplication.
+    if (!isShowingDetail) {
+      const dateLabel = relativeDate(sortBy === "created" ? note.createdAt : note.modifiedAt);
 
-    if (note.folder) {
-      accessories.push({ tag: { value: note.folder, color: Color.Blue }, tooltip: "Folder" });
+      if (dateLabel) {
+        accessories.push({ text: dateLabel });
+      }
+
+      if (note.folder) {
+        accessories.push({ tag: { value: note.folder, color: Color.Blue }, tooltip: "Folder" });
+      }
     }
 
     return (
@@ -290,14 +295,14 @@ export default function SearchNotes() {
                 <Action
                   title="Reload"
                   icon={Icon.ArrowClockwise}
-                  shortcut={{ modifiers: ["cmd"], key: "r" }}
+                  shortcut={commonShortcut("Refresh")}
                   onAction={() => revalidate()}
                 />
                 <Action
                   title="Delete Note"
                   icon={Icon.Trash}
                   style={Action.Style.Destructive}
-                  shortcut={{ modifiers: ["ctrl"], key: "x" }}
+                  shortcut={commonShortcut("Remove")}
                   onAction={async () => {
                     if (
                       !(await confirmAlert({ title: `Delete “${note.title}”?`, message: "Moves to Recently Deleted." }))
@@ -464,7 +469,7 @@ export function LockedNoteActions({ note, onChanged }: { note: AppleNote; onChan
       <Action.Push
         title="New Note"
         icon={Icon.NewDocument}
-        shortcut={{ modifiers: ["cmd"], key: "n" }}
+        shortcut={commonShortcut("New")}
         target={<CreateNoteForm onCreated={onChanged} closeOnSuccess />}
       />
     </ActionPanel>
