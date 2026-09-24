@@ -11,6 +11,7 @@ import {
   open,
   showToast,
   Toast,
+  useNavigation,
 } from "@vicinae/api";
 import { useEffect, useState } from "react";
 import {
@@ -19,6 +20,8 @@ import {
   AppleNote,
   applyTemplatePlaceholders,
   createNote,
+  deleteNote,
+  duplicateNote,
   exportFolderToMarkdown,
   getNoteExtras,
   getNoteHtml,
@@ -77,44 +80,63 @@ export function NoteActions({ note, onChanged }: { note: AppleNote; onChanged?: 
         />
       </ActionPanel.Section>
       <ActionPanel.Section title="Copy">
-        <Action
-          title="Copy as Markdown"
+        <ActionPanel.Submenu
+          title="Copy as…"
           icon={Icon.CopyClipboard}
           shortcut={{ modifiers: ["cmd", "shift"], key: "m" }}
-          onAction={async () => {
-            const toast = await showToast({ style: Toast.Style.Animated, title: "Loading note…" });
+        >
+          <Action
+            title="Markdown"
+            onAction={async () => {
+              const toast = await showToast({ style: Toast.Style.Animated, title: "Loading note…" });
 
-            try {
-              const { markdown } = await getNoteMarkdown(note.id);
-              await Clipboard.copy(markdown);
-              toast.style = Toast.Style.Success;
-              toast.title = "Copied as Markdown";
-              await toast.update();
-            } catch (error) {
-              toast.style = Toast.Style.Failure;
-              toast.title = "Could not copy note";
-              toast.message = error instanceof Error ? error.message : undefined;
-              await toast.update();
-            }
-          }}
-        />
-        <Action
-          title="Copy as Plain Text"
-          icon={Icon.Text}
-          onAction={async () => {
-            try {
-              const text = await getNotePlaintext(note.id);
-              await Clipboard.copy(text);
-              await showToast({ style: Toast.Style.Success, title: "Copied plain text" });
-            } catch (error) {
-              await showToast({
-                style: Toast.Style.Failure,
-                title: "Could not copy note",
-                message: error instanceof Error ? error.message : undefined,
-              });
-            }
-          }}
-        />
+              try {
+                const { markdown } = await getNoteMarkdown(note.id, note.title);
+                await Clipboard.copy(markdown);
+                toast.style = Toast.Style.Success;
+                toast.title = "Copied as Markdown";
+                await toast.update();
+              } catch (error) {
+                toast.style = Toast.Style.Failure;
+                toast.title = "Could not copy note";
+                toast.message = error instanceof Error ? error.message : undefined;
+                await toast.update();
+              }
+            }}
+          />
+          <Action
+            title="Plain Text"
+            onAction={async () => {
+              try {
+                const text = await getNotePlaintext(note.id, note.title);
+                await Clipboard.copy(text);
+                await showToast({ style: Toast.Style.Success, title: "Copied plain text" });
+              } catch (error) {
+                await showToast({
+                  style: Toast.Style.Failure,
+                  title: "Could not copy note",
+                  message: error instanceof Error ? error.message : undefined,
+                });
+              }
+            }}
+          />
+          <Action
+            title="HTML"
+            onAction={async () => {
+              try {
+                const html = await getNoteHtml(note.id, note.title);
+                await Clipboard.copy(html);
+                await showToast({ style: Toast.Style.Success, title: "Copied as HTML" });
+              } catch (error) {
+                await showToast({
+                  style: Toast.Style.Failure,
+                  title: "Could not copy note",
+                  message: error instanceof Error ? error.message : undefined,
+                });
+              }
+            }}
+          />
+        </ActionPanel.Submenu>
         {note.url ? <Action.CopyToClipboard title="Copy Note Link" content={note.url} icon={Icon.Link} /> : null}
       </ActionPanel.Section>
       <ActionPanel.Section>
@@ -122,7 +144,7 @@ export function NoteActions({ note, onChanged }: { note: AppleNote; onChanged?: 
           title="New Note"
           icon={Icon.NewDocument}
           shortcut={{ modifiers: ["cmd"], key: "n" }}
-          target={<CreateNoteForm onCreated={onChanged} />}
+          target={<CreateNoteForm onCreated={onChanged} closeOnSuccess />}
         />
       </ActionPanel.Section>
     </>
@@ -142,6 +164,8 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
   const notePk = note.pk;
   const noteUuid = note.uuid;
   const noteTags = note.tags;
+
+  const { pop } = useNavigation();
 
   useEffect(() => {
     let cancelled = false;
@@ -295,6 +319,68 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
             onAction={() => Clipboard.copy(`# ${note.title}\n\n${markdown}`)}
           />
           <Action title="Copy as HTML" icon={Icon.CodeBlock} onAction={() => Clipboard.copy(html || "")} />
+          <ActionPanel.Section title="Organize">
+            <Action.Push
+              title="Move to Folder…"
+              icon={Icon.Folder}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "m" }}
+              target={<MoveToFolderForm note={note} onMoved={onChanged} />}
+            />
+            <Action
+              title="Duplicate Note"
+              icon={Icon.CopyClipboard}
+              shortcut={{ modifiers: ["cmd"], key: "d" }}
+              onAction={async () => {
+                const toast = await showToast({ style: Toast.Style.Animated, title: "Duplicating…" });
+
+                try {
+                  await duplicateNote({ id: note.id, title: note.title, folderName: note.folder });
+                  toast.style = Toast.Style.Success;
+                  toast.title = "Note duplicated";
+                  await toast.update();
+                  onChanged?.();
+                } catch (caught) {
+                  toast.style = Toast.Style.Failure;
+                  toast.title = "Could not duplicate note";
+                  toast.message = caught instanceof Error ? caught.message : undefined;
+                  await toast.update();
+                }
+              }}
+            />
+            <Action
+              title="Delete Note"
+              icon={Icon.Trash}
+              style={Action.Style.Destructive}
+              shortcut={{ modifiers: ["ctrl"], key: "x" }}
+              onAction={async () => {
+                if (
+                  !(await confirmAlert({ title: `Delete "${note.title}"?`, message: "Moves to Recently Deleted." }))
+                ) {
+                  return;
+                }
+                const toast = await showToast({ style: Toast.Style.Animated, title: "Deleting…" });
+
+                try {
+                  await deleteNote(note.id, note.title);
+                  toast.style = Toast.Style.Success;
+                  toast.title = "Note deleted";
+                  await toast.update();
+                  onChanged?.();
+
+                  try {
+                    pop();
+                  } catch {
+                    // already at root - nothing to pop
+                  }
+                } catch (caught) {
+                  toast.style = Toast.Style.Failure;
+                  toast.title = "Could not delete note";
+                  toast.message = caught instanceof Error ? caught.message : undefined;
+                  await toast.update();
+                }
+              }}
+            />
+          </ActionPanel.Section>
         </ActionPanel>
       }
     />
@@ -468,9 +554,11 @@ export function AppendNoteView({ note, onSaved }: { note: AppleNote; onSaved?: (
 export function CreateNoteForm({
   onCreated,
   prefillFromClipboard,
+  closeOnSuccess,
 }: {
   onCreated?: () => void;
   prefillFromClipboard?: boolean;
+  closeOnSuccess?: boolean;
 }) {
   const [folders, setFolders] = useState<string[]>([]);
   const [templates, setTemplates] = useState<NoteTemplate[]>([]);
@@ -479,6 +567,7 @@ export function CreateNoteForm({
   // `undefined` doubles as the clipboard-loading flag (Form shows its loader).
   const [body, setBody] = useState<string | undefined>(prefillFromClipboard ? undefined : "");
   const [templateVersion, setTemplateVersion] = useState(0);
+  const { pop } = useNavigation();
   let defaultFolder = "Notes";
 
   try {
@@ -576,6 +665,14 @@ export function CreateNoteForm({
                 toast.title = "Note created";
                 await toast.update();
                 onCreated?.();
+
+                if (closeOnSuccess) {
+                  try {
+                    pop();
+                  } catch {
+                    // already at root - nothing to pop
+                  }
+                }
               } catch (error) {
                 toast.style = Toast.Style.Failure;
                 toast.title = "Could not create note";
@@ -628,6 +725,7 @@ export function CreateNoteForm({
 export function MoveToFolderForm({ note, onMoved }: { note: AppleNote; onMoved?: () => void }) {
   const [folders, setFolders] = useState<AppleFolder[]>([]);
   const [folder, setFolder] = useState(note.folder);
+  const { pop } = useNavigation();
 
   useEffect(() => {
     let cancelled = false;
@@ -671,6 +769,12 @@ export function MoveToFolderForm({ note, onMoved }: { note: AppleNote; onMoved?:
                 toast.title = `Moved to ${target}`;
                 await toast.update();
                 onMoved?.();
+
+                try {
+                  pop();
+                } catch {
+                  // already at root - nothing to pop
+                }
               } catch (error) {
                 toast.style = Toast.Style.Failure;
                 toast.title = "Could not move note";

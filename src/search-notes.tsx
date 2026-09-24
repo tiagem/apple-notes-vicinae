@@ -133,7 +133,7 @@ export default function SearchNotes() {
               <Action.Push
                 title="New Note Anyway"
                 icon={Icon.NewDocument}
-                target={<CreateNoteForm onCreated={() => revalidate()} />}
+                target={<CreateNoteForm onCreated={() => revalidate()} closeOnSuccess />}
               />
             </ActionPanel>
           }
@@ -416,7 +416,7 @@ export default function SearchNotes() {
               <Action.Push
                 title="New Note"
                 icon={Icon.NewDocument}
-                target={<CreateNoteForm onCreated={() => revalidate()} />}
+                target={<CreateNoteForm onCreated={() => revalidate()} closeOnSuccess />}
               />
               <Action title="Reload" icon={Icon.ArrowClockwise} onAction={() => revalidate()} />
             </ActionPanel>
@@ -465,7 +465,7 @@ export function LockedNoteActions({ note, onChanged }: { note: AppleNote; onChan
         title="New Note"
         icon={Icon.NewDocument}
         shortcut={{ modifiers: ["cmd"], key: "n" }}
-        target={<CreateNoteForm onCreated={onChanged} />}
+        target={<CreateNoteForm onCreated={onChanged} closeOnSuccess />}
       />
     </ActionPanel>
   );
