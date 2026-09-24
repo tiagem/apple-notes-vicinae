@@ -105,6 +105,24 @@
       "label": "Show Markdown preview panel by default",
       "description": "Toggle the side preview in the search list",
       "required": false
+    },
+    {
+      "name": "popToListAfterEdit",
+      "title": "Edit behavior",
+      "type": "checkbox",
+      "default": false,
+      "label": "Return to notes list after editing",
+      "description": "Pop back to the notes list after saving note edits",
+      "required": false
+    },
+    {
+      "name": "showListAfterCreate",
+      "title": "Create behavior",
+      "type": "checkbox",
+      "default": false,
+      "label": "Show notes list after creating",
+      "description": "Open the notes list after creating a note",
+      "required": false
     }
   ],
   "dependencies": {

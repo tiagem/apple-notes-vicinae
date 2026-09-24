@@ -14,6 +14,12 @@ type ExtensionPreferences = {
 
 	/** Show Apple Note Preview - Toggle the side preview in the search list */
 	"showDetailByDefault": boolean;
+
+	/** Edit behavior - Pop back to the notes list after saving note edits */
+	"popToListAfterEdit": boolean;
+
+	/** Create behavior - Open the notes list after creating a note */
+	"showListAfterCreate": boolean;
 }
 
 declare type Preferences = ExtensionPreferences

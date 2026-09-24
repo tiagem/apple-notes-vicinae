@@ -46,6 +46,7 @@ import {
 } from "../lib/templates";
 import { commonShortcut } from "../lib/shortcuts";
 import { useAsyncData } from "../hooks/useAsyncData";
+import SearchNotes from "../search-notes";
 
 export function NoteActions({ note, onChanged }: { note: AppleNote; onChanged?: () => void }) {
   // NOTE: must return a fragment (sections), NOT an <ActionPanel>.
@@ -437,6 +438,14 @@ export function EditNoteView({
     initialMarkdown ? splitTitleAndBody(initialMarkdown, note.title) : null,
   );
   const [isLoading, setIsLoading] = useState(!initialMarkdown);
+  const { pop: popAfterSave } = useNavigation();
+  let popToListAfterEdit = false;
+
+  try {
+    popToListAfterEdit = getPreferenceValues<Preferences>().popToListAfterEdit ?? false;
+  } catch {
+    popToListAfterEdit = false;
+  }
 
   useEffect(() => {
     if (initialMarkdown) {
@@ -488,6 +497,14 @@ export function EditNoteView({
                 toast.title = "Note saved";
                 await toast.update();
                 onSaved?.();
+
+                if (popToListAfterEdit) {
+                  try {
+                    popAfterSave();
+                  } catch {
+                    // already at root - nothing to pop
+                  }
+                }
               } catch (error) {
                 toast.style = Toast.Style.Failure;
                 toast.title = "Could not save note";
@@ -568,11 +585,14 @@ export function CreateNoteForm({
   // `undefined` doubles as the clipboard-loading flag (Form shows its loader).
   const [body, setBody] = useState<string | undefined>(prefillFromClipboard ? undefined : "");
   const [templateVersion, setTemplateVersion] = useState(0);
-  const { pop } = useNavigation();
+  const { pop, push } = useNavigation();
   let defaultFolder = "Notes";
+  let showListAfterCreate = false;
 
   try {
-    defaultFolder = getPreferenceValues<Preferences>().defaultFolder || "Notes";
+    const prefs = getPreferenceValues<Preferences>();
+    defaultFolder = prefs.defaultFolder || "Notes";
+    showListAfterCreate = prefs.showListAfterCreate ?? false;
   } catch {
     defaultFolder = "Notes";
   }
@@ -667,7 +687,9 @@ export function CreateNoteForm({
                 await toast.update();
                 onCreated?.();
 
-                if (closeOnSuccess) {
+                if (showListAfterCreate) {
+                  push(<SearchNotes />);
+                } else if (closeOnSuccess) {
                   try {
                     pop();
                   } catch {
