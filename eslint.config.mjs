@@ -7,7 +7,7 @@ import stylistic from "@stylistic/eslint-plugin";
 
 export default tseslint.config(
   {
-    ignores: ["node_modules/", "**/*.js", "vicinae-env.d.ts"],
+    ignores: ["node_modules/", "**/*.js", "vicinae-env.d.ts", "scripts/"],
   },
   ...tseslint.configs.recommended,
   reactHooks.configs.flat.recommended,
