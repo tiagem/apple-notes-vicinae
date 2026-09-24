@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.vicinae/
+*.log
+.DS_Store

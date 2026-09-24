@@ -1,0 +1,3 @@
+# Generated files — enforced by their own generators, not prettier
+vicinae-env.d.ts
+node_modules

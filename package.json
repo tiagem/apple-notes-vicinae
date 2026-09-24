@@ -1,0 +1,143 @@
+{
+  "$schema": "https://raw.githubusercontent.com/vicinaehq/vicinae/refs/heads/main/extra/schemas/extension.json",
+  "name": "apple-notes",
+  "title": "Apple Notes",
+  "description": "Create, view, edit and render Markdown from on-device Apple Notes (macOS only).",
+  "icon": "extension-icon.png",
+  "author": "tiagem",
+  "version": "1.0.0",
+  "license": "MIT",
+  "platforms": [
+    "macOS"
+  ],
+  "categories": [
+    "Productivity"
+  ],
+  "keywords": [
+    "apple notes",
+    "notes",
+    "markdown",
+    "create",
+    "edit",
+    "view"
+  ],
+  "commands": [
+    {
+      "name": "search-notes",
+      "title": "Search Apple Notes",
+      "description": "Search, view and edit your on-device Apple Notes",
+      "mode": "view"
+    },
+    {
+      "name": "create-note",
+      "title": "New Apple Note",
+      "description": "Create a new Apple Note",
+      "mode": "view",
+      "keywords": [
+        "write note",
+        "add note",
+        "make note",
+        "create note"
+      ]
+    },
+    {
+      "name": "move-note",
+      "title": "Move Apple Note to folder",
+      "description": "Move an Apple Note to a different folder",
+      "mode": "view",
+      "keywords": [
+        "move note",
+        "move to folder",
+        "organize"
+      ]
+    },
+    {
+      "name": "view-selected-note",
+      "title": "View Selected Apple Note",
+      "description": "View the currently selected note from Notes.app",
+      "mode": "view"
+    },
+    {
+      "name": "export-notes",
+      "title": "Export Apple Notes",
+      "description": "Export a folder of Apple Notes to Markdown files",
+      "mode": "view",
+      "keywords": [
+        "export",
+        "backup",
+        "markdown"
+      ]
+    },
+    {
+      "name": "manage-templates",
+      "title": "Manage Apple Note Templates",
+      "description": "Create and edit your note templates",
+      "mode": "view",
+      "keywords": [
+        "templates",
+        "note templates",
+        "template"
+      ]
+    }
+  ],
+  "preferences": [
+    {
+      "name": "maxResults",
+      "title": "Maximum Results",
+      "type": "textfield",
+      "default": "5000",
+      "description": "Maximum number of notes to load from the Notes database",
+      "required": false
+    },
+    {
+      "name": "defaultFolder",
+      "title": "Default Folder",
+      "type": "textfield",
+      "default": "Notes",
+      "description": "Folder used when creating a note (falls back to the default Notes folder)",
+      "required": false
+    },
+    {
+      "name": "showDetailByDefault",
+      "title": "Show Apple Note Preview",
+      "type": "checkbox",
+      "default": false,
+      "label": "Show Markdown preview panel by default",
+      "description": "Toggle the side preview in the search list",
+      "required": false
+    }
+  ],
+  "dependencies": {
+    "@vicinae/api": "^0.25.0"
+  },
+  "devDependencies": {
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "@types/node": "25.6.0",
+    "@types/react": "^19.2.14",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
+    "prettier": "^3.8.3",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.70.1"
+  },
+  "scripts": {
+    "build": "vici build",
+    "dev": "vici develop",
+    "typecheck": "tsc --noEmit",
+    "lint:js": "eslint .",
+    "lint:js:fix": "eslint . --fix",
+    "lint:text": "scripts/check-no-emdash.sh",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "lint": "vici lint && npm run typecheck && npm run lint:js && npm run lint:text && npm run format",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  }
+}
