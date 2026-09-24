@@ -147,6 +147,7 @@
     "lint:js": "eslint .",
     "lint:js:fix": "eslint . --fix",
     "lint:text": "scripts/check-no-emdash.sh",
+    "verify:markdown": "node scripts/verify-markdown.mjs",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "lint": "vici lint && npm run typecheck && npm run lint:js && npm run lint:text && npm run format",

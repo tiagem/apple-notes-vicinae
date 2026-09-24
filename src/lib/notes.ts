@@ -1063,15 +1063,28 @@ function escapeHtml(value: string): string {
 }
 
 function decodeEntities(value: string): string {
-  return value
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCharCode(Number(code)));
+  return (
+    value
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      // Bare &amp without semicolon (user-typed "&amp ...").
+      .replace(/&amp(?![a-zA-Z0-9#]+;)/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&quot(?![a-zA-Z0-9#]+;)/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&#x27;/g, "'")
+      // NOTE: &lt; &gt; (and numeric &#60; &#62;) are intentionally KEPT so
+      // literal < > render instead of being swallowed as HTML tags.
+      .replace(/&#(\d+);/g, (m, code: string) => {
+        const n = Number(code);
+
+        if (n === 60 || n === 62) {
+          return m;
+        }
+
+        return String.fromCharCode(n);
+      })
+  );
 }
 
 /** Convert Apple Notes HTML body into readable Markdown for Detail/list preview. */
@@ -1090,6 +1103,28 @@ export function htmlToMarkdown(html: string): string {
   out = out.replace(/<\/p>\s*<p[^>]*>/gi, "\n\n");
   out = out.replace(/<\/?p[^>]*>/gi, "\n\n");
 
+  out = out.replace(/<table[\s\S]*?<\/table>/gi, (table) => {
+    const rows = [...table.matchAll(/<tr[\s\S]*?<\/tr>/gi)]
+      .map((row) =>
+        [...row[0].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((cell) =>
+          convertInline(cell[1].replace(/<\/?(?:div|p|br)[^>]*>/gi, " "))
+            .trim()
+            .replace(/\|/g, "\\|"),
+        ),
+      )
+      .filter((r) => r.length > 0);
+
+    if (rows.length === 0) {
+      return "";
+    }
+    const cols = Math.max(...rows.map((r) => r.length));
+    const pad = (r: string[]): string[] => [...r, ...Array<string>(cols - r.length).fill("")];
+    const head = `| ${pad(rows[0]).join(" | ")} |`;
+    const sep = `|${Array<string>(cols).fill(" --- ").join("|")}|`;
+
+    return `\n\n${[head, sep, ...rows.slice(1).map((r) => `| ${pad(r).join(" | ")} |`)].join("\n")}\n\n`;
+  });
+
   // Unwrap inline tags directly around a heading: <b><h1>T</h1></b> → <h1>T</h1>.
   // Otherwise the heading converts first and the stray <b> wraps it in broken `**`.
   let prev = "";
@@ -1106,16 +1141,26 @@ export function htmlToMarkdown(html: string): string {
   // Empty headings from hollow styled divs (e.g. <h1><br></h1>) carry no content
   out = out.replace(/^#{1,3}\s*$/gm, "");
 
-  out = out.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_, inner: string) => {
-    const text = convertInline(inner).trim().replace(/\n+/g, " ");
+  // Depth-aware lists: sibling <ul>/<ol> (how Notes nests) keep indentation
+  // so structure survives the edit round-trip.
+  const listKindStack: Array<"ul" | "ol"> = [];
 
-    if (/^\[[\sx]\]/i.test(text)) {
-      return `- ${text}\n`;
+  out = out.replace(/<\/?(?:ul|ol)[^>]*>|<li[^>]*>([\s\S]*?)<\/li>/gi, (match, liInner?: string) => {
+    if (liInner === undefined) {
+      if (match.startsWith("</")) {
+        listKindStack.pop();
+      } else {
+        listKindStack.push(match.startsWith("<ol") ? "ol" : "ul");
+      }
+
+      return "";
     }
+    const indent = "  ".repeat(Math.max(0, listKindStack.length - 1));
+    const marker = listKindStack[listKindStack.length - 1] === "ol" ? "1." : "-";
+    const text = convertInline(liInner).trim().replace(/\n+/g, " ");
 
-    return `- ${text}\n`;
+    return `${indent}${marker} ${text}\n`;
   });
-  out = out.replace(/<\/?(?:ul|ol)[^>]*>/gi, "\n");
 
   out = out.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_, inner: string) => {
     const text = convertInline(inner).trim().replace(/\n/g, "\n> ");
@@ -1126,12 +1171,13 @@ export function htmlToMarkdown(html: string): string {
     /<pre[^>]*>([\s\S]*?)<\/pre>/gi,
     (_, inner: string) => `\`\`\`\n${stripTags(inner).trim()}\n\`\`\`\n\n`,
   );
-  out = convertInline(out);
+  // Checklist spans must convert before convertInline strips every tag.
   out = out.replace(/<span[^>]*apple-rich-text-checklist[^>]*>([\s\S]*?)<\/span>/gi, (_, inner: string) => {
     const done = /checked/i.test(inner) || /☑|✓/.test(inner);
 
-    return `\n- [${done ? "x" : " "}] ${stripTags(inner).trim()}\n`;
+    return `\n- [${done ? "x" : " "}] ${convertInline(inner).trim()}\n`;
   });
+  out = convertInline(out);
 
   out = stripTags(out);
   out = decodeEntities(out);
@@ -1215,13 +1261,34 @@ export function markdownToHtml(markdown: string): string {
   const html: string[] = [];
   let inCode = false;
   let codeBuffer: string[] = [];
-  let listOpen: string | null = null;
+  // Open list kinds per depth level - nesting survives the edit round-trip.
+  const listStack: Array<"ul" | "ol"> = [];
 
-  const closeList = () => {
-    if (listOpen) {
-      html.push(listOpen === "ul" ? "</ul>" : "</ol>");
-      listOpen = null;
+  const closeListsTo = (depth: number): void => {
+    while (listStack.length > depth) {
+      const kind = listStack.pop();
+      html.push(kind === "ul" ? "</ul>" : "</ol>");
     }
+  };
+
+  const closeAllLists = (): void => {
+    closeListsTo(0);
+  };
+
+  const setListLevel = (level: number, kind: "ul" | "ol"): void => {
+    closeListsTo(level + 1);
+
+    if (listStack[level] !== kind) {
+      closeListsTo(level);
+      html.push(kind === "ul" ? "<ul>" : "<ol>");
+      listStack.push(kind);
+    }
+  };
+
+  const listLevel = (rawLine: string): number => {
+    const indent = (rawLine.match(/^(\s*)/)?.[1] ?? "").replace(/\t/g, "  ").length;
+
+    return Math.floor(indent / 2);
   };
 
   const inline = (text: string): string => {
@@ -1241,7 +1308,7 @@ export function markdownToHtml(markdown: string): string {
 
     if (line.trim().startsWith("```")) {
       if (!inCode) {
-        closeList();
+        closeAllLists();
         inCode = true;
         codeBuffer = [];
       } else {
@@ -1259,7 +1326,7 @@ export function markdownToHtml(markdown: string): string {
     const trimmed = line.trim();
 
     if (!trimmed) {
-      closeList();
+      closeAllLists();
       html.push("<div><br></div>");
       continue;
     }
@@ -1267,7 +1334,7 @@ export function markdownToHtml(markdown: string): string {
     const heading = trimmed.match(/^(#{1,3})\s+(.*)$/);
 
     if (heading) {
-      closeList();
+      closeAllLists();
       const level = heading[1].length;
       html.push(`<h${level}>${inline(heading[2])}</h${level}>`);
       continue;
@@ -1276,7 +1343,7 @@ export function markdownToHtml(markdown: string): string {
     const quote = trimmed.match(/^>\s?(.*)$/);
 
     if (quote) {
-      closeList();
+      closeAllLists();
       html.push(`<blockquote>${inline(quote[1])}</blockquote>`);
       continue;
     }
@@ -1284,11 +1351,7 @@ export function markdownToHtml(markdown: string): string {
     const task = trimmed.match(/^-\s*\[( |x|X)\]\s+(.*)$/);
 
     if (task) {
-      if (listOpen !== "ul") {
-        closeList();
-        html.push("<ul>");
-        listOpen = "ul";
-      }
+      setListLevel(listLevel(line), "ul");
       const mark = task[1].toLowerCase() === "x" ? "☑" : "☐";
       html.push(`<li>${mark} ${inline(task[2])}</li>`);
       continue;
@@ -1297,11 +1360,7 @@ export function markdownToHtml(markdown: string): string {
     const bullet = trimmed.match(/^[-*]\s+(.*)$/);
 
     if (bullet) {
-      if (listOpen !== "ul") {
-        closeList();
-        html.push("<ul>");
-        listOpen = "ul";
-      }
+      setListLevel(listLevel(line), "ul");
       html.push(`<li>${inline(bullet[1])}</li>`);
       continue;
     }
@@ -1309,23 +1368,19 @@ export function markdownToHtml(markdown: string): string {
     const ordered = trimmed.match(/^\d+[.)]\s+(.*)$/);
 
     if (ordered) {
-      if (listOpen !== "ol") {
-        closeList();
-        html.push("<ol>");
-        listOpen = "ol";
-      }
+      setListLevel(listLevel(line), "ol");
       html.push(`<li>${inline(ordered[1])}</li>`);
       continue;
     }
 
-    closeList();
+    closeAllLists();
     html.push(`<div>${inline(trimmed)}</div>`);
   }
 
   if (inCode) {
     html.push(`<pre><code>${escapeHtml(codeBuffer.join("\n"))}</code></pre>`);
   }
-  closeList();
+  closeAllLists();
 
   return html.join("");
 }
