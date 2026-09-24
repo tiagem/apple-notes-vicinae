@@ -24,6 +24,7 @@ import {
   duplicateNote,
   exportFolderToMarkdown,
   getNoteExtras,
+  getNoteById,
   getNoteHtml,
   getNoteMarkdown,
   getNotePlaintext,
@@ -154,18 +155,20 @@ export function NoteActions({ note, onChanged }: { note: AppleNote; onChanged?: 
 }
 
 export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged?: () => void }) {
+  const [currentNote, setCurrentNote] = useState(note);
   const [markdown, setMarkdown] = useState<string>(note.snippet ? `_${note.snippet}_` : "Loading…");
   const [html, setHtml] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [showMetadata, setShowMetadata] = useState(false);
   const [extras, setExtras] = useState<NoteExtras>({ tags: [...note.tags], links: [], backlinks: [] });
+  const [detailVersion, setDetailVersion] = useState(0);
 
-  const noteId = note.id;
-  const noteSnippet = note.snippet;
-  const noteTitle = note.title;
-  const notePk = note.pk;
-  const noteUuid = note.uuid;
-  const noteTags = note.tags;
+  const noteId = currentNote.id;
+  const noteSnippet = currentNote.snippet;
+  const noteTitle = currentNote.title;
+  const notePk = currentNote.pk;
+  const noteUuid = currentNote.uuid;
+  const noteTags = currentNote.tags;
 
   const { pop } = useNavigation();
 
@@ -203,13 +206,22 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
     return () => {
       cancelled = true;
     };
-  }, [noteId, noteSnippet, noteTitle, notePk, noteUuid, noteTags]);
+  }, [noteId, noteSnippet, noteTitle, notePk, noteUuid, noteTags, detailVersion]);
 
-  if (note.locked) {
+  const handleEdited = () => {
+    onChanged?.();
+    // The view stays mounted under the edit form - refresh body and metadata on return.
+    getNoteById(noteId)
+      .then((fresh) => setCurrentNote(fresh))
+      .catch(() => undefined);
+    setDetailVersion((v) => v + 1);
+  };
+
+  if (currentNote.locked) {
     return (
       <Detail
-        navigationTitle={note.title}
-        markdown={`# ${note.title}\n\n> 🔒 This note is locked. Open it in Notes.app to unlock and view it.`}
+        navigationTitle={currentNote.title}
+        markdown={`# ${currentNote.title}\n\n> 🔒 This note is locked. Open it in Notes.app to unlock and view it.`}
         actions={
           <ActionPanel>
             <Action
@@ -217,15 +229,17 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
               icon={Icon.AppWindow}
               onAction={async () => {
                 try {
-                  await openNote(note.id);
+                  await openNote(currentNote.id);
                 } catch {
-                  if (note.url) {
-                    await open(note.url, "com.apple.notes");
+                  if (currentNote.url) {
+                    await open(currentNote.url, "com.apple.notes");
                   }
                 }
               }}
             />
-            {note.url ? <Action.CopyToClipboard title="Copy Note Link" content={note.url} icon={Icon.Link} /> : null}
+            {currentNote.url ? (
+              <Action.CopyToClipboard title="Copy Note Link" content={currentNote.url} icon={Icon.Link} />
+            ) : null}
           </ActionPanel>
         }
       />
@@ -234,22 +248,24 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
 
   return (
     <Detail
-      navigationTitle={note.title}
-      markdown={`# ${note.title}\n\n${isLoading ? "_Loading full content…_\n\n" : ""}${markdown}`}
+      navigationTitle={currentNote.title}
+      markdown={`# ${currentNote.title}\n\n${isLoading ? "_Loading full content…_\n\n" : ""}${markdown}`}
       metadata={
         showMetadata ? (
           <Detail.Metadata>
-            <Detail.Metadata.Label title="Folder" text={note.folder || "-"} />
-            <Detail.Metadata.Label title="Account" text={note.account || "-"} />
-            {note.modifiedAt ? (
-              <Detail.Metadata.Label title="Modified" text={note.modifiedAt.toLocaleString()} />
+            <Detail.Metadata.Label title="Folder" text={currentNote.folder || "-"} />
+            <Detail.Metadata.Label title="Account" text={currentNote.account || "-"} />
+            {currentNote.modifiedAt ? (
+              <Detail.Metadata.Label title="Modified" text={currentNote.modifiedAt.toLocaleString()} />
             ) : null}
-            {note.createdAt ? <Detail.Metadata.Label title="Created" text={note.createdAt.toLocaleString()} /> : null}
+            {currentNote.createdAt ? (
+              <Detail.Metadata.Label title="Created" text={currentNote.createdAt.toLocaleString()} />
+            ) : null}
             <Detail.Metadata.Separator />
-            <Detail.Metadata.Label title="Pinned" text={note.pinned ? "Yes" : "No"} />
-            <Detail.Metadata.Label title="Locked" text={note.locked ? "Yes" : "No"} />
-            <Detail.Metadata.Label title="Checklist" text={note.checklist ? "Yes" : "No"} />
-            {note.shared ? <Detail.Metadata.Label title="Shared" text="Yes" /> : null}
+            <Detail.Metadata.Label title="Pinned" text={currentNote.pinned ? "Yes" : "No"} />
+            <Detail.Metadata.Label title="Locked" text={currentNote.locked ? "Yes" : "No"} />
+            <Detail.Metadata.Label title="Checklist" text={currentNote.checklist ? "Yes" : "No"} />
+            {currentNote.shared ? <Detail.Metadata.Label title="Shared" text="Yes" /> : null}
             {extras.tags.length > 0 ? (
               <Detail.Metadata.TagList title="Tags">
                 {extras.tags.map((tag) => (
@@ -289,12 +305,12 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
           <Action.Push
             title="Edit Note"
             icon={Icon.Pencil}
-            target={<EditNoteView note={note} initialMarkdown={markdown} onSaved={onChanged} />}
+            target={<EditNoteView note={currentNote} initialMarkdown={markdown} onSaved={handleEdited} />}
           />
           <Action.Push
             title="Append to Note"
             icon={Icon.Plus}
-            target={<AppendNoteView note={note} onSaved={onChanged} />}
+            target={<AppendNoteView note={currentNote} onSaved={handleEdited} />}
           />
           <Action
             title={showMetadata ? "Hide Details" : "Show Details"}
@@ -307,10 +323,10 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
             icon={Icon.AppWindow}
             onAction={async () => {
               try {
-                await openNote(note.id);
+                await openNote(currentNote.id);
               } catch {
-                if (note.url) {
-                  await open(note.url, "com.apple.notes");
+                if (currentNote.url) {
+                  await open(currentNote.url, "com.apple.notes");
                 }
               }
             }}
@@ -318,7 +334,7 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
           <Action
             title="Copy as Markdown"
             icon={Icon.CopyClipboard}
-            onAction={() => Clipboard.copy(`# ${note.title}\n\n${markdown}`)}
+            onAction={() => Clipboard.copy(`# ${currentNote.title}\n\n${markdown}`)}
           />
           <Action title="Copy as HTML" icon={Icon.CodeBlock} onAction={() => Clipboard.copy(html || "")} />
           <ActionPanel.Section title="Organize">
@@ -326,7 +342,7 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
               title="Move to Folder…"
               icon={Icon.Folder}
               shortcut={{ modifiers: ["cmd", "shift"], key: "m" }}
-              target={<MoveToFolderForm note={note} onMoved={onChanged} />}
+              target={<MoveToFolderForm note={currentNote} onMoved={handleEdited} />}
             />
             <Action
               title="Duplicate Note"
@@ -336,11 +352,11 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
                 const toast = await showToast({ style: Toast.Style.Animated, title: "Duplicating…" });
 
                 try {
-                  await duplicateNote({ id: note.id, title: note.title, folderName: note.folder });
+                  await duplicateNote({ id: currentNote.id, title: currentNote.title, folderName: currentNote.folder });
                   toast.style = Toast.Style.Success;
                   toast.title = "Note duplicated";
                   await toast.update();
-                  onChanged?.();
+                  handleEdited();
                 } catch (caught) {
                   toast.style = Toast.Style.Failure;
                   toast.title = "Could not duplicate note";
@@ -356,14 +372,17 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
               shortcut={commonShortcut("Remove")}
               onAction={async () => {
                 if (
-                  !(await confirmAlert({ title: `Delete "${note.title}"?`, message: "Moves to Recently Deleted." }))
+                  !(await confirmAlert({
+                    title: `Delete "${currentNote.title}"?`,
+                    message: "Moves to Recently Deleted.",
+                  }))
                 ) {
                   return;
                 }
                 const toast = await showToast({ style: Toast.Style.Animated, title: "Deleting…" });
 
                 try {
-                  await deleteNote(note.id, note.title);
+                  await deleteNote(currentNote.id, currentNote.title);
                   toast.style = Toast.Style.Success;
                   toast.title = "Note deleted";
                   await toast.update();
