@@ -55,6 +55,7 @@ const H2M = [
     "| **Scope** | Time |\n| --- | --- |\n| A | B |",
   ],
   ["nested read", "<ul><li>a</li><ul><li>b</li></ul></ul>", "- a\n  - b"],
+  ["empty code dropped", "<div><tt><br></tt></div><div>x</div>", "x"],
   ["ordered read", "<ol><li>a</li><li>b</li></ol>", "1. a\n1. b"],
   ["checklist span", "<div><span class='x apple-rich-text-checklist'>task</span></div>", "- [ ] task"],
 ];

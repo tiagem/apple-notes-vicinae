@@ -1145,20 +1145,25 @@ export function htmlToMarkdown(html: string): string {
   out = out.replace(/^#{1,3}\s*$/gm, "");
 
   // Depth-aware lists: sibling <ul>/<ol> (how Notes nests) keep indentation
-  // so structure survives the edit round-trip.
+  // so structure survives the edit round-trip. Ordered markers are 3 cols
+  // wide (`1. `), so ol levels indent by 3 and ul levels by 2 (CommonMark).
   const listKindStack: Array<"ul" | "ol"> = [];
+  const listIndentStack: string[] = [];
 
   out = out.replace(/<\/?(?:ul|ol)[^>]*>|<li[^>]*>([\s\S]*?)<\/li>/gi, (match, liInner?: string) => {
     if (liInner === undefined) {
       if (match.startsWith("</")) {
         listKindStack.pop();
+        listIndentStack.pop();
       } else {
-        listKindStack.push(match.startsWith("<ol") ? "ol" : "ul");
+        const kind = match.startsWith("<ol") ? ("ol" as const) : ("ul" as const);
+        listKindStack.push(kind);
+        listIndentStack.push(kind === "ol" ? "   " : "  ");
       }
 
       return "";
     }
-    const indent = "  ".repeat(Math.max(0, listKindStack.length - 1));
+    const indent = listIndentStack.slice(0, -1).join("");
     const marker = listKindStack[listKindStack.length - 1] === "ol" ? "1." : "-";
     const text = convertInline(liInner).trim().replace(/\n+/g, " ");
 
@@ -1219,7 +1224,17 @@ function convertInline(html: string): string {
     out = out.replace(/<span[^>]*background[^>]*>([\s\S]*?)<\/span>/gi, (_, inner: string) => `**${inner}**`);
     out = out.replace(/<mark[^>]*>([\s\S]*?)<\/mark>/gi, (_, inner: string) => `**${inner}**`);
   }
-  out = out.replace(/<(code|tt)[^>]*>([\s\S]*?)<\/\1>/gi, (_, __: string, inner: string) => `\`${stripTags(inner)}\``);
+  out = out.replace(/<(code|tt)[^>]*>([\s\S]*?)<\/\1>/gi, (_, __: string, inner: string) => {
+    const text = stripTags(inner);
+
+    // Hollow monospace divs (<tt><br></tt>) carry no code - emitting lone
+    // backticks would pair up across lines and corrupt the render.
+    if (!text.trim()) {
+      return "";
+    }
+
+    return `\`${text}\``;
+  });
   out = out.replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href: string, text: string) => {
     const label = convertInline(text).trim() || href;
 
@@ -1266,6 +1281,8 @@ export function markdownToHtml(markdown: string): string {
   let codeBuffer: string[] = [];
   // Open list kinds per depth level - nesting survives the edit round-trip.
   const listStack: Array<"ul" | "ol"> = [];
+  // Ancestor indent widths for relative level computation.
+  const indentStack: number[] = [];
 
   const closeListsTo = (depth: number): void => {
     while (listStack.length > depth) {
@@ -1276,6 +1293,7 @@ export function markdownToHtml(markdown: string): string {
 
   const closeAllLists = (): void => {
     closeListsTo(0);
+    indentStack.length = 0;
   };
 
   const setListLevel = (level: number, kind: "ul" | "ol"): void => {
@@ -1289,9 +1307,17 @@ export function markdownToHtml(markdown: string): string {
   };
 
   const listLevel = (rawLine: string): number => {
+    // Relative levels: any indent deeper than the parent opens a sublist.
+    // Handles mixed widths (ul nests at +2, ol at +3 per CommonMark).
     const indent = (rawLine.match(/^(\s*)/)?.[1] ?? "").replace(/\t/g, "  ").length;
 
-    return Math.floor(indent / 2);
+    while (indentStack.length > 0 && indentStack[indentStack.length - 1] >= indent) {
+      indentStack.pop();
+    }
+    const level = indentStack.length;
+    indentStack.push(indent);
+
+    return level;
   };
 
   const inline = (text: string): string => {
