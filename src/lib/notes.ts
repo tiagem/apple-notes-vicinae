@@ -61,7 +61,7 @@ export type NoteFilters = {
 export class FullDiskAccessError extends Error {
   constructor() {
     super(
-      "Cannot read Apple Notes database. Grant Full Disk Access to your terminal (System Settings → Privacy & Security → Full Disk Access), then reload.",
+      "Cannot read Notes database. Grant Full Disk Access to your terminal (System Settings → Privacy & Security → Full Disk Access), then reload.",
     );
     this.name = "FullDiskAccessError";
   }
@@ -1090,7 +1090,7 @@ function decodeEntities(value: string): string {
   );
 }
 
-/** Convert Apple Notes HTML body into readable Markdown for Detail/list preview. */
+/** Convert Notes HTML body into readable Markdown for Detail/list preview. */
 export function htmlToMarkdown(html: string): string {
   if (!html) {
     return "";
@@ -1273,7 +1273,7 @@ function splitEmphasis(inner: string, marker: "**" | "*" | "~~"): string {
     .join(`\n\n${marker}`);
 }
 
-/** Minimal Markdown → HTML for writing back to Apple Notes. */
+/** Minimal Markdown → HTML for writing back to Notes. */
 export function markdownToHtml(markdown: string): string {
   const lines = (markdown ?? "").replace(/\r\n/g, "\n").split("\n");
   const html: string[] = [];

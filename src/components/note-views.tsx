@@ -574,7 +574,7 @@ export function EditNoteView({
         placeholder="Write in Markdown - headings, lists, tasks, links…"
         defaultValue={loaded?.body ?? ""}
       />
-      <Form.Description text="Saved back to Apple Notes. The first line becomes the note title in Notes." />
+      <Form.Description text="Saved back to Notes. The first line becomes the note title in Notes." />
     </Form>
   );
 }

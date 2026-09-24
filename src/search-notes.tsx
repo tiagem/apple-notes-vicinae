@@ -123,11 +123,11 @@ export default function SearchNotes() {
 
   if (error instanceof FullDiskAccessError || error?.name === "FullDiskAccessError") {
     return (
-      <List searchBarPlaceholder="Search Apple Notes…">
+      <List searchBarPlaceholder="Search Notes…">
         <List.EmptyView
           icon={Icon.Lock}
           title="Full Disk Access required"
-          description="To read on-device Apple Notes, grant Full Disk Access to your terminal, then press ↻ to reload. Writes use Notes via Automation."
+          description="To read on-device Notes, grant Full Disk Access to your terminal, then press ↻ to reload. Writes use Notes via Automation."
           actions={
             <ActionPanel>
               <Action title="Reload" icon={Icon.ArrowClockwise} onAction={() => revalidate()} />
@@ -385,7 +385,7 @@ export default function SearchNotes() {
     <List
       isLoading={isLoading}
       isShowingDetail={isShowingDetail && visible.length > 0}
-      searchBarPlaceholder="Search Apple Notes… (title, snippet, folder, checklist, locked, shared)"
+      searchBarPlaceholder="Search Notes… (title, snippet, folder, checklist, locked, shared)"
       searchText={searchText}
       onSearchTextChange={setSearchText}
       throttle

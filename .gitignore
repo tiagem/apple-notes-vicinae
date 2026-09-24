@@ -3,3 +3,4 @@ dist/
 .vicinae/
 *.log
 .DS_Store
+/scripts/

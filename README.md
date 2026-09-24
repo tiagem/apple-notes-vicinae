@@ -1,6 +1,6 @@
-# Apple Notes for Vicinae (macOS only)
+# Notes for Vicinae (macOS only)
 
-Create, view, edit, and render Markdown from your on-device Apple Notes.
+Create, view, edit, and render Markdown from your on-device Notes.
 
 ## Commands
 
