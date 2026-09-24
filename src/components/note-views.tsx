@@ -414,34 +414,59 @@ function splitTitleAndBody(fullMarkdown: string, fallbackTitle: string): { title
   const heading = first.match(/^#{1,3}\s+(.*)$/);
 
   if (heading && heading[1].trim()) {
-    return { title: heading[1].trim(), body: lines.slice(1).join("\n").trim() };
+    const title = heading[1].trim();
+
+    return { title, body: dropLeadingTitleLines(lines.slice(1).join("\n"), title) };
   }
 
-  if (first && fallbackTitle !== first && lines.length > 1) {
-    return { title: fallbackTitle, body: fullMarkdown };
-  }
-
-  return { title: fallbackTitle, body: fullMarkdown };
+  // Plain styled title line (Notes bold titles have no <h1>)
+  return { title: fallbackTitle, body: dropLeadingTitleLines(fullMarkdown, fallbackTitle) };
 }
 
-/** The Notes body already starts with the title as a heading - drop it so the view doesn't show it twice. */
-function stripLeadingTitle(markdown: string, title: string): string {
-  const lines = markdown.split("\n");
-  const firstIdx = lines.findIndex((line) => line.trim().length > 0);
+/**
+ * Drop leading lines repeating the note title - as `#` heading or as plain
+ * styled text (Notes bold titles carry no <h1>). Loops to also repair notes
+ * already damaged with stacked duplicates. Keeps everything else untouched.
+ */
+function dropLeadingTitleLines(markdown: string, title: string): string {
+  const wanted = title.trim();
 
-  if (firstIdx === -1) {
+  if (!wanted) {
     return markdown;
   }
-  const heading = lines[firstIdx].trim().match(/^#{1,3}\s+(.*)$/);
+  const lines = markdown.split("\n");
+  let idx = 0;
+  let dropped = false;
 
-  if (heading && heading[1].trim() === title.trim()) {
-    return lines
-      .slice(firstIdx + 1)
-      .join("\n")
-      .trim();
+  for (;;) {
+    while (idx < lines.length && lines[idx].trim() === "") {
+      idx++;
+    }
+
+    if (idx >= lines.length) {
+      break;
+    }
+    const line = lines[idx].trim();
+    const heading = line.match(/^#{1,3}\s+(.*)$/);
+    const text = heading ? heading[1].trim() : line;
+
+    if (text !== wanted) {
+      break;
+    }
+    idx++;
+    dropped = true;
   }
 
-  return markdown;
+  if (!dropped) {
+    return markdown;
+  }
+
+  return lines.slice(idx).join("\n").trim();
+}
+
+/** The Notes body already starts with the title - drop it so views and edits don't duplicate it. */
+function stripLeadingTitle(markdown: string, title: string): string {
+  return dropLeadingTitleLines(markdown, title);
 }
 
 export function EditNoteView({
