@@ -249,7 +249,7 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
   return (
     <Detail
       navigationTitle={currentNote.title}
-      markdown={`# ${currentNote.title}\n\n${isLoading ? "_Loading full content…_\n\n" : ""}${markdown}`}
+      markdown={`# ${currentNote.title}\n\n${isLoading ? "_Loading full content…_\n\n" : ""}${renderTaskLists(markdown)}`}
       metadata={
         showMetadata ? (
           <Detail.Metadata>
@@ -406,6 +406,13 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
       }
     />
   );
+}
+
+/** Display-only fallback: task markers need the GFM tasklist extension,
+ *  which the renderer may lack - unicode boxes always show up. State keeps
+ *  canonical `- [ ]` so copy and edit round-trip correctly. */
+function renderTaskLists(markdown: string): string {
+  return markdown.replace(/^(\s*)-\s*\[ \]/gm, "$1- ☐").replace(/^(\s*)-\s*\[[xX]\]/gm, "$1- ☑");
 }
 
 function splitTitleAndBody(fullMarkdown: string, fallbackTitle: string): { title: string; body: string } {
