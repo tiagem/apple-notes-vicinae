@@ -1170,7 +1170,7 @@ function convertInline(html: string): string {
     out = out.replace(/<span[^>]*background[^>]*>([\s\S]*?)<\/span>/gi, (_, inner: string) => `**${inner}**`);
     out = out.replace(/<mark[^>]*>([\s\S]*?)<\/mark>/gi, (_, inner: string) => `**${inner}**`);
   }
-  out = out.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_, inner: string) => `\`${stripTags(inner)}\``);
+  out = out.replace(/<(code|tt)[^>]*>([\s\S]*?)<\/\1>/gi, (_, __: string, inner: string) => `\`${stripTags(inner)}\``);
   out = out.replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href: string, text: string) => {
     const label = convertInline(text).trim() || href;
 
