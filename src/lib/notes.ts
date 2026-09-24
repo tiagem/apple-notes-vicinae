@@ -689,9 +689,7 @@ export async function createNote(options: {
   await runAppleScript(`
     tell application "Notes"
       ${folderClause}
-      set newNote to make new note at targetFolder with properties {name:"${escapeDoubleQuotes(title)}", body:"${escapeDoubleQuotes(fullBody)}"}
-      show newNote
-      activate
+      make new note at targetFolder with properties {name:"${escapeDoubleQuotes(title)}", body:"${escapeDoubleQuotes(fullBody)}"}
     end tell
   `);
 }
@@ -988,8 +986,7 @@ export async function duplicateNote(options: { id: string; title: string; folder
   await runAppleScript(`
     tell application "Notes"
       ${folderClause}
-      set newNote to make new note at targetFolder with properties {name:"${escapeDoubleQuotes(newTitle)}", body:"${escapeDoubleQuotes(fullBody)}"}
-      show newNote
+      make new note at targetFolder with properties {name:"${escapeDoubleQuotes(newTitle)}", body:"${escapeDoubleQuotes(fullBody)}"}
     end tell
   `);
 }
