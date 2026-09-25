@@ -249,7 +249,7 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
   return (
     <Detail
       navigationTitle={currentNote.title}
-      markdown={`# ${currentNote.title}\n\n${isLoading ? "_Loading full content…_\n\n" : ""}${renderTaskLists(markdown)}`}
+      markdown={`# ${currentNote.title}\n\n${isLoading ? "_Loading full content…_\n\n" : ""}${flattenNestedLists(renderTaskLists(markdown))}`}
       metadata={
         showMetadata ? (
           <Detail.Metadata>
@@ -409,10 +409,40 @@ export function NoteDetailView({ note, onChanged }: { note: AppleNote; onChanged
 }
 
 /** Display-only fallback: task markers need the GFM tasklist extension,
- *  which the renderer may lack - unicode boxes always show up. State keeps
+ *  which this Vicinae build lacks - unicode boxes always show up. State keeps
  *  canonical `- [ ]` so copy and edit round-trip correctly. */
 function renderTaskLists(markdown: string): string {
   return markdown.replace(/^(\s*)-\s*\[ \]/gm, "$1- ☐").replace(/^(\s*)-\s*\[[xX]\]/gm, "$1- ☑");
+}
+
+/** Display-only fallback: this Vicinae build drops nested list children, so
+ *  flatten hierarchy into single-level items with depth glyphs. Ordered
+ *  markers become bullets - state keeps canonical markdown for copy/edit. */
+function flattenNestedLists(markdown: string): string {
+  const glyphs = ["◦", "▪", "▫"];
+
+  return markdown
+    .split("\n")
+    .map((line) => {
+      const match = line.match(/^(\s*)([-*]|\d+[.)])\s+(.*)$/);
+
+      if (!match || !match[3]) {
+        return line;
+      }
+      const ordered = /^\d/.test(match[2]);
+      const depth = ordered ? Math.round(match[1].length / 3) : Math.floor(match[1].length / 2);
+
+      if (depth <= 0) {
+        return line;
+      }
+      const glyph = glyphs[(depth - 1) % glyphs.length];
+      const prefix = Array(Math.ceil(depth / glyphs.length))
+        .fill(glyph)
+        .join(" ");
+
+      return `- ${prefix} ${match[3]}`;
+    })
+    .join("\n");
 }
 
 function splitTitleAndBody(fullMarkdown: string, fallbackTitle: string): { title: string; body: string } {
@@ -575,6 +605,9 @@ export function EditNoteView({
         defaultValue={loaded?.body ?? ""}
       />
       <Form.Description text="Saved back to Notes. The first line becomes the note title in Notes." />
+      {note.checklist ? (
+        <Form.Description text="Warning: this note has native checklists. Saving will flatten them into plain bullets." />
+      ) : null}
     </Form>
   );
 }
@@ -616,6 +649,9 @@ export function AppendNoteView({ note, onSaved }: { note: AppleNote; onSaved?: (
       }
     >
       <Form.TextArea id="text" title="Text (Markdown)" placeholder="Text to add at the end…" />
+      {note.checklist ? (
+        <Form.Description text="Warning: this note has native checklists. Appending rewrites the note and will flatten them into plain bullets." />
+      ) : null}
     </Form>
   );
 }

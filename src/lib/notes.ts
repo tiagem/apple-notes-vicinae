@@ -1377,12 +1377,13 @@ export function markdownToHtml(markdown: string): string {
       continue;
     }
 
-    const task = trimmed.match(/^-\s*\[( |x|X)\]\s+(.*)$/);
+    // No native checklist support: task markers degrade to plain bullets
+    // on write instead of fake unicode boxes.
+    const task = trimmed.match(/^-\s*\[[ xX]\]\s+(.*)$/);
 
     if (task) {
       setListLevel(listLevel(line), "ul");
-      const mark = task[1].toLowerCase() === "x" ? "☑" : "☐";
-      html.push(`<li>${mark} ${inline(task[2])}</li>`);
+      html.push(`<li>${inline(task[1])}</li>`);
       continue;
     }
 

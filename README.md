@@ -30,6 +30,11 @@ No network, no sync service, no extra npm dependencies.
 
 If reads fail you get an EmptyView explaining FDA with a Reload action; creation still works via AppleScript.
 
+## Limitations
+
+- **Native checklists are not supported.** Notes.app exposes no checklist API over AppleScript (its scripting dictionary has no checklist concept) and strips checklist markup on write, so task markers (`- [ ]`) degrade to plain bullets when saved. The extension warns before saving/appending to a note that has native checklists. Detection (list badge + `checklist`/`progress`/`done` filters) keeps working.
+- **Renderer gaps (Vicinae 0.29.0):** nested lists, task checkboxes, strikethrough and inline code do not render in `Detail`/`List.Item.Detail`. The full-note Detail view compensates display-only: nested lists are flattened with depth glyphs (`◦`/`▪`/`▫`), tasks show as `☐`/`☑`. Stored Markdown stays canonical.
+
 ## Preferences
 
 - `maxResults` (default `100`): notes loaded from DB.
